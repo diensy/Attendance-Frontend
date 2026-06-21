@@ -970,7 +970,14 @@ export default function Dashboard({ setActiveTab }) {
 
         {/* GitHub stats / repos / commits list */}
         {github.hasUsername ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+          <div>
+            {github.error && (
+              <div className="mb-4 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-md p-3 text-xs flex items-start gap-2.5">
+                <span className="font-bold shrink-0">⚠️ Notice:</span>
+                <div>{github.error}</div>
+              </div>
+            )}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
             
             {/* Repositories */}
             <div className="lg:col-span-1 space-y-4">
@@ -1037,7 +1044,8 @@ export default function Dashboard({ setActiveTab }) {
             </div>
 
           </div>
-        ) : (
+        </div>
+      ) : (
           <div className="text-center py-10 bg-muted/20 rounded-xl border border-dashed border-border">
             <Github className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
             <h4 className="font-outfit font-bold text-sm text-foreground">Connect GitHub Profile</h4>
