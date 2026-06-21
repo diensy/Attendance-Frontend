@@ -5,6 +5,7 @@ import { Target, Play, Square, X, AlertCircle, BarChart3, Clock, CalendarDays, C
 import { Select } from '../components/Select';
 import { TimePicker } from '../components/TimePicker';
 import { Input } from '../components/Input';
+import DatePicker from '../components/DatePicker';
 
 export default function SmartGoals() {
   const { token, showToast } = useContext(AuthContext);
@@ -19,6 +20,16 @@ export default function SmartGoals() {
   const [priority, setPriority] = useState('Medium');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+
+  const getTodayDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const [selectedDate, setSelectedDate] = useState(getTodayDateString());
 
   // Interruption State
   const [interruptedGoal, setInterruptedGoal] = useState(null);
@@ -51,30 +62,30 @@ export default function SmartGoals() {
       setLoading(false);
     }
   };
-
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!title || !startTime || !endTime) return;
+    if (!title || !startTime || !endTime || !selectedDate) return;
 
-    // Combine current date with selected times to get timestamps
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
+    // Create Date objects in the user's local timezone
+    const [year, month, day] = selectedDate.split('-').map(Number);
     
-    let startTimestamp = `${dateStr}T${startTime}:00`;
-    let endTimestamp = `${dateStr}T${endTime}:00`;
+    const startDate = new Date();
+    startDate.setFullYear(year, month - 1, day);
+    const [startH, startM] = startTime.split(':');
+    startDate.setHours(parseInt(startH), parseInt(startM), 0, 0);
+
+    const endDate = new Date();
+    endDate.setFullYear(year, month - 1, day);
+    const [endH, endM] = endTime.split(':');
+    endDate.setHours(parseInt(endH), parseInt(endM), 0, 0);
 
     // Handle crossing midnight (e.g. 9 PM to 12 AM)
     if (endTime < startTime) {
-      const tomorrow = new Date(now);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tYear = tomorrow.getFullYear();
-      const tMonth = String(tomorrow.getMonth() + 1).padStart(2, '0');
-      const tDay = String(tomorrow.getDate()).padStart(2, '0');
-      endTimestamp = `${tYear}-${tMonth}-${tDay}T${endTime}:00`;
+      endDate.setDate(endDate.getDate() + 1);
     }
+
+    const startTimestamp = startDate.toISOString();
+    const endTimestamp = endDate.toISOString();
 
     try {
       const res = await fetch(`${API_URL}/smart-goals`, {
@@ -98,6 +109,7 @@ export default function SmartGoals() {
         setReason('');
         setStartTime('');
         setEndTime('');
+        setSelectedDate(getTodayDateString());
         fetchGoals();
       }
     } catch (err) {
@@ -296,6 +308,10 @@ export default function SmartGoals() {
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground mb-1">Goal Name</label>
                   <Input required type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Python OOP" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1 font-outfit">Select Date</label>
+                  <DatePicker required value={selectedDate} onChange={val => setSelectedDate(val)} minDate="today" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-muted-foreground mb-1">Why are you doing this? (Reason)</label>

@@ -419,10 +419,10 @@ function AppLayout({ user, stats, theme, toggleTheme, onLogoutRequest }) {
     { path: '/courses',   label: 'Playlist Classes',icon: Youtube },
     { path: '/roadmaps',  label: 'Study Roadmaps',  icon: GitFork },
     { path: '/timer',     label: 'Focus Timer',    icon: Timer },
-    { path: '/todos',     label: 'Study Tasks',    icon: CheckSquare },
+    // { path: '/todos',     label: 'Study Tasks',    icon: CheckSquare },
     { path: '/smart-goals',label: 'Smart Goals',  icon: Activity },
     { path: '/study-ide', label: 'Coding IDE Tasks', icon: Code2 },
-    { path: '/goals',     label: 'Learning Goals', icon: Target },
+    // { path: '/goals',     label: 'Learning Goals', icon: Target },
     { path: '/coach',     label: 'AI Coach Chat',  icon: MessageSquare },
     { path: '/notes',     label: 'Notes & AI Logs',icon: BookOpen },
   ];
@@ -607,10 +607,10 @@ function AppLayout({ user, stats, theme, toggleTheme, onLogoutRequest }) {
             <Route path="/courses"   element={<CoursesPage />} />
             <Route path="/roadmaps"  element={<RoadmapsPage />} />
             <Route path="/timer"     element={<FocusTimerPage />} />
-            <Route path="/todos"     element={<TodosPage />} />
+            {/* <Route path="/todos"     element={<TodosPage />} /> */}
             <Route path="/smart-goals" element={<SmartGoalsPage />} />
             <Route path="/study-ide" element={<StudyTasksIDE />} />
-            <Route path="/goals"     element={<GoalsPage />} />
+            {/* <Route path="/goals"     element={<GoalsPage />} /> */}
             <Route path="/coach"     element={<CoachPage />} />
             <Route path="/notes"     element={<NotesPage />} />
             <Route path="/profile"   element={<ProfilePage />} />
