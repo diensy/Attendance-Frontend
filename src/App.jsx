@@ -313,11 +313,8 @@ function AppProviders() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground">
-        <div className="relative flex items-center justify-center">
-          <Clover className="w-14 h-14 text-primary animate-spin" />
-          <div className="absolute w-20 h-20 border-t-2 border-r-2 border-primary rounded-full animate-spin" />
-        </div>
-        <span className="mt-4 text-base font-semibold tracking-wide text-muted-foreground">Loading Code Clover 🍀…</span>
+        <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+        <span className="mt-4 text-sm font-semibold tracking-wider text-muted-foreground uppercase">Loading...</span>
       </div>
     );
   }
