@@ -11,6 +11,7 @@ export default function Courses() {
   const { token, showToast, stats, fetchStats } = useContext(AuthContext);
 
   const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeCourse, setActiveCourse] = useState(null);
   const [activeVideo, setActiveVideo] = useState(null);
   const [videos, setVideos] = useState([]);
@@ -36,6 +37,7 @@ export default function Courses() {
 
   // Fetch all courses
   const fetchCourses = async () => {
+    setLoading(true);
     try {
       const res = await fetch(`${API_URL}/courses`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -45,6 +47,8 @@ export default function Courses() {
       }
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -422,7 +426,12 @@ export default function Courses() {
             })}
           </div>
 
-          {courses.length === 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center p-24 bg-card rounded-2xl border border-border text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
+              <p className="text-xs text-muted-foreground font-semibold">Loading classrooms...</p>
+            </div>
+          ) : courses.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 bg-card rounded-2xl border border-border text-center">
               <div className="p-4 bg-primary/10 rounded-2xl text-primary mb-4 animate-pulse">
                 <Youtube className="w-12 h-12" />
@@ -478,7 +487,7 @@ export default function Courses() {
                       key={course.id} 
                       className="flex flex-col bg-card border border-border rounded-2xl overflow-hidden hover:shadow-lg transition-all group"
                     >
-                      <div className="relative aspect-video bg-muted overflow-hidden shrink-0">
+                      <div className="relative w-full aspect-video bg-muted overflow-hidden shrink-0">
                         <img 
                           src={course.thumbnail_url || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500'} 
                           alt={course.title}
@@ -502,10 +511,10 @@ export default function Courses() {
                       <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                         <div>
                           <h4 className="font-outfit font-bold text-base text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                            {course.title}
+                            {course.title || 'Untitled Playlist'}
                           </h4>
                           <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                            {course.description}
+                            {course.description || 'No description provided.'}
                           </p>
                         </div>
 

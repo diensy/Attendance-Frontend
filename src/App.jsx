@@ -499,7 +499,7 @@ function AppLayout({ user, stats, theme, toggleTheme, onLogoutRequest }) {
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto h-screen">
 
         {/* ── Top Navbar ── */}
-        <header className="flex items-center justify-between h-16 px-4 lg:px-6 bg-card/90 backdrop-blur border-b border-border sticky top-0 z-10 shrink-0">
+        <header className="flex items-center justify-between h-16 px-4 lg:px-6 bg-card/90 backdrop-blur border-b border-border sticky top-0 z-20 shrink-0">
 
           {/* Left */}
           <div className="flex items-center gap-3">
