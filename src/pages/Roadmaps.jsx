@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../App';
+import { AuthContext, API_URL } from '../App';
 import Portal from '../components/Portal';
 import { 
   GitFork, CheckCircle, Award, BookOpen, Trash2, Plus, X, ArrowLeft, Youtube, ChevronRight
@@ -31,7 +31,7 @@ export default function Roadmaps() {
 
   const fetchRoadmaps = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/courses/roadmaps', {
+      const res = await fetch(`${API_URL}/courses/roadmaps`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -55,7 +55,7 @@ export default function Roadmaps() {
 
     setIsSavingRoadmap(true);
     try {
-      const res = await fetch('http://localhost:5000/api/courses/roadmaps', {
+      const res = await fetch(`${API_URL}/courses/roadmaps`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -90,7 +90,7 @@ export default function Roadmaps() {
 
     setIsGenerating(true);
     try {
-      const res = await fetch('http://localhost:5000/api/courses/roadmaps/generate', {
+      const res = await fetch(`${API_URL}/courses/roadmaps/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ export default function Roadmaps() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const res = await fetch(`http://localhost:5000/api/courses/roadmaps/${roadmapId}`, {
+          const res = await fetch(`${API_URL}/courses/roadmaps/${roadmapId}`, {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -158,7 +158,7 @@ export default function Roadmaps() {
     if (!title.trim()) return;
 
     try {
-      const res = await fetch('http://localhost:5000/api/courses/roadmaps/items', {
+      const res = await fetch(`${API_URL}/courses/roadmaps/items`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -184,7 +184,7 @@ export default function Roadmaps() {
 
   const handleDeleteItem = async (itemId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/roadmaps/items/${itemId}`, {
+      const res = await fetch(`${API_URL}/courses/roadmaps/items/${itemId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -200,7 +200,7 @@ export default function Roadmaps() {
 
   const handleToggleItemStatus = async (itemId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/roadmaps/items/${itemId}/toggle`, {
+      const res = await fetch(`${API_URL}/courses/roadmaps/items/${itemId}/toggle`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });

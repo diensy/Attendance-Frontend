@@ -59,6 +59,7 @@ exports/
 
 # OpenAI Keys
 .env*
+!.env.production
 
 # Package Managers
 .pnp

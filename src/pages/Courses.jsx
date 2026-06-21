@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import { AuthContext } from '../App';
+import { AuthContext, API_URL } from '../App';
 import Portal from '../components/Portal';
 import { 
   Play, CheckCircle, Circle, ArrowLeft, Plus, Trash2, 
@@ -37,7 +37,7 @@ export default function Courses() {
   // Fetch all courses
   const fetchCourses = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/courses', {
+      const res = await fetch(`${API_URL}/courses`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -66,7 +66,7 @@ export default function Courses() {
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
-          const res = await fetch(`http://localhost:5000/api/courses/${courseId}`, {
+          const res = await fetch(`${API_URL}/courses/${courseId}`, {
             method: 'DELETE',
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -93,7 +93,7 @@ export default function Courses() {
   // Fetch course details
   const loadCourse = async (courseId) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/${courseId}`, {
+      const res = await fetch(`${API_URL}/courses/${courseId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -126,7 +126,7 @@ export default function Courses() {
 
     setIsImporting(true);
     try {
-      const res = await fetch('http://localhost:5000/api/courses/import', {
+      const res = await fetch(`${API_URL}/courses/import`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -166,7 +166,7 @@ export default function Courses() {
     saveTimeoutRef.current = setTimeout(async () => {
       setSaveStatus('Saving...');
       try {
-        const res = await fetch(`http://localhost:5000/api/courses/videos/${activeVideo.id}/progress`, {
+        const res = await fetch(`${API_URL}/courses/videos/${activeVideo.id}/progress`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -259,7 +259,7 @@ export default function Courses() {
           const relativeWatched = Math.min(duration, Math.max(0, current - startSec));
           if (relativeWatched > 0 && relativeWatched % 10 === 0) {
             try {
-              await fetch(`http://localhost:5000/api/courses/videos/${activeVideo.id}/progress`, {
+              await fetch(`${API_URL}/courses/videos/${activeVideo.id}/progress`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -319,7 +319,7 @@ export default function Courses() {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/courses/videos/${activeVideo.id}/complete`, {
+      const res = await fetch(`${API_URL}/courses/videos/${activeVideo.id}/complete`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -687,7 +687,7 @@ export default function Courses() {
                     <button
                       onClick={async () => {
                         // Re-fetch review text if completed
-                        const res = await fetch(`http://localhost:5000/api/courses/${activeCourse.id}`, {
+                        const res = await fetch(`${API_URL}/courses/${activeCourse.id}`, {
                           headers: { Authorization: `Bearer ${token}` }
                         });
                         if (res.ok) {
