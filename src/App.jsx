@@ -224,6 +224,35 @@ function AppProviders() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [token]);
 
+  // Handle 30-minute idle logout
+  useEffect(() => {
+    if (!token) return;
+    
+    let idleTimeout;
+    const IDLE_TIME_MS = 30 * 60 * 1000; // 30 minutes
+
+    const resetIdleTimer = () => {
+      clearTimeout(idleTimeout);
+      idleTimeout = setTimeout(() => {
+        showToast('Logged out due to 30 minutes of inactivity.', 'info');
+        logout();
+      }, IDLE_TIME_MS);
+    };
+
+    resetIdleTimer();
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    const handleUserActivity = () => resetIdleTimer();
+
+    events.forEach(event => window.addEventListener(event, handleUserActivity, { passive: true }));
+
+    return () => {
+      clearTimeout(idleTimeout);
+      events.forEach(event => window.removeEventListener(event, handleUserActivity));
+    };
+  }, [token]); // Depends on token so it starts when logged in
+
+
   const toggleTheme = () => setTheme(p => p === 'light' ? 'dark' : 'light');
 
   const fetchStats = async (authToken = token) => {
