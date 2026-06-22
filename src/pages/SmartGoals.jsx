@@ -290,6 +290,13 @@ export default function SmartGoals() {
                     >
                       <CheckCircle2 className="w-4 h-4" /> Complete
                     </button>
+                    <button
+                      onClick={() => setInterruptedGoal(goal)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 transition-colors"
+                      title="Quit session early"
+                    >
+                      <X className="w-4 h-4" /> Quit early
+                    </button>
                   </div>
                 )}
               </div>

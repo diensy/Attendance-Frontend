@@ -411,6 +411,30 @@ function AppLayout({ user, stats, theme, toggleTheme, onLogoutRequest }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const { token } = useContext(AuthContext);
+
+  // Smart Goals Heartbeat Ping
+  useEffect(() => {
+    if (!token) return;
+    const heartbeat = async () => {
+      try {
+        await fetch(`${API_URL}/smart-goals/heartbeat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        });
+      } catch (err) {
+        console.error('Heartbeat ping failed:', err);
+      }
+    };
+
+    heartbeat(); // Initial ping
+    const intervalId = setInterval(heartbeat, 30000);
+    return () => clearInterval(intervalId);
+  }, [token]);
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard',      icon: LayoutDashboard },
     { path: '/courses',   label: 'Playlist Classes',icon: Youtube },
