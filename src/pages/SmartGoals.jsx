@@ -50,11 +50,8 @@ export default function SmartGoals() {
         const data = await res.json();
         setGoals(data);
         
-        // Find any interrupted goal that needs a reason
-        const interruptedWithoutReason = data.find(g => g.status === 'Interrupted' && !g.quit_reason);
-        if (interruptedWithoutReason) {
-          setInterruptedGoal(interruptedWithoutReason);
-        }
+        // The user now provides the reason via the email buttons. 
+        // We no longer automatically pop up the interrupt modal on page refresh.
       }
     } catch (err) {
       console.error(err);
@@ -158,9 +155,32 @@ export default function SmartGoals() {
     }
   };
 
+  const submitResumeGoal = async () => {
+    if (!interruptedGoal) return;
+    try {
+      const res = await fetch(`${API_URL}/smart-goals/${interruptedGoal.id}/resume`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast('Session resumed successfully! Keep up the good work.', 'success');
+        setInterruptedGoal(null);
+        setQuitReason('');
+        fetchGoals();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const formatTime = (ts) => {
     if (!ts) return 'N/A';
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDate = (ts) => {
+    if (!ts) return 'N/A';
+    return new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   // Analytics
@@ -269,7 +289,7 @@ export default function SmartGoals() {
                   </div>
                   <p className="text-sm text-muted-foreground">{goal.reason}</p>
                   <div className="flex items-center gap-4 mt-3 text-xs font-semibold text-muted-foreground">
-                    <span className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> Planned: {formatTime(goal.start_time)} - {formatTime(goal.end_time)}</span>
+                    <span className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> Planned: {formatDate(goal.start_time)} • {formatTime(goal.start_time)} - {formatTime(goal.end_time)}</span>
                     {goal.actual_end_time && (
                       <span className="flex items-center gap-1.5 text-foreground"><Clock className="w-3.5 h-3.5" /> Ended: {formatTime(goal.actual_end_time)}</span>
                     )}
@@ -359,42 +379,76 @@ export default function SmartGoals() {
       {/* Interruption Reason Modal */}
       {interruptedGoal && (
         <Portal>
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <div className="bg-card text-card-foreground border border-border rounded-xl p-6 max-w-sm w-full shadow-lg">
-              <div className="flex justify-center mb-4 text-rose-500">
-                <AlertCircle className="w-12 h-12" />
-              </div>
-              <h3 className="font-outfit font-bold text-center text-xl mb-2">You ended your session early.</h3>
-              <div className="text-center text-sm text-muted-foreground mb-6">
-                <p><strong>Goal:</strong> {interruptedGoal.title}</p>
-                <p><strong>Planned:</strong> {formatTime(interruptedGoal.start_time)} - {formatTime(interruptedGoal.end_time)}</p>
-                <p><strong>Actual:</strong> {formatTime(interruptedGoal.start_time)} - {formatTime(interruptedGoal.actual_end_time)}</p>
-              </div>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="bg-card text-card-foreground border border-border rounded-2xl p-0 max-w-md w-full shadow-2xl overflow-hidden relative">
               
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-center mb-2">Why did you stop studying?</p>
-                {['Office Work', 'Family Work', 'Tired', 'Emergency', 'Lost Focus', 'Other'].map(r => (
-                  <button
-                    key={r}
-                    onClick={() => setQuitReason(r)}
-                    className={`w-full p-2.5 text-sm font-semibold rounded-lg border transition-all ${
-                      quitReason === r 
-                        ? 'bg-primary/10 border-primary text-primary' 
-                        : 'bg-secondary border-border text-foreground hover:bg-muted'
-                    }`}
+              {/* Header with subtle gradient */}
+              <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-rose-500/10 to-transparent pointer-events-none" />
+              
+              <div className="p-8 relative">
+                <div className="w-16 h-16 bg-rose-500/10 text-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-inner">
+                  <AlertCircle className="w-8 h-8" />
+                </div>
+                
+                <h3 className="font-outfit font-extrabold text-center text-2xl mb-2 text-foreground tracking-tight">Session Interrupted</h3>
+                <p className="text-center text-sm text-muted-foreground mb-6">We noticed your study session ended early. Did something come up, or are you still here?</p>
+                
+                {/* Session Details Box */}
+                <div className="bg-muted/50 rounded-xl p-4 mb-6 border border-border/50 text-sm flex flex-col gap-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-semibold">Goal</span>
+                    <span className="font-bold text-foreground">{interruptedGoal.title}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-semibold">Planned Time</span>
+                    <span className="font-medium text-foreground">{formatTime(interruptedGoal.start_time)} - {formatTime(interruptedGoal.end_time)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-rose-500">
+                    <span className="font-semibold">Actual Stop</span>
+                    <span className="font-bold">{formatTime(interruptedGoal.actual_end_time)}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 h-px bg-border"></div>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Select a Reason</p>
+                    <div className="flex-1 h-px bg-border"></div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    {['Office Work', 'Family Work', 'Tired', 'Emergency', 'Lost Focus', 'Other'].map(r => (
+                      <button
+                        key={r}
+                        onClick={() => setQuitReason(r)}
+                        className={`p-3 text-sm font-semibold rounded-xl border-2 transition-all duration-200 ${
+                          quitReason === r 
+                            ? 'bg-rose-500/10 border-rose-500 text-rose-600 shadow-sm' 
+                            : 'bg-card border-border text-muted-foreground hover:border-muted hover:bg-muted/50 hover:text-foreground'
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 mt-8">
+                  <button 
+                    onClick={submitResumeGoal}
+                    className="flex-1 py-3 bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 text-sm font-bold rounded-xl transition-all hover:-translate-y-0.5 active:translate-y-0"
                   >
-                    {r}
+                    I'm still here!
                   </button>
-                ))}
+                  <button 
+                    onClick={submitQuitReason}
+                    disabled={!quitReason}
+                    className="flex-1 py-3 bg-secondary text-secondary-foreground text-sm font-bold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed hover:bg-muted transition-colors border border-border"
+                  >
+                    Save & Quit
+                  </button>
+                </div>
               </div>
-              
-              <button 
-                onClick={submitQuitReason}
-                disabled={!quitReason}
-                className="w-full mt-6 py-2.5 bg-primary text-primary-foreground text-sm font-bold rounded-lg disabled:opacity-50"
-              >
-                Save Reason
-              </button>
             </div>
           </div>
         </Portal>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { AuthContext, API_URL } from '../App';
 import Portal from '../components/Portal';
-import { MessageSquare, Send, Settings, Check, User, Bot, Loader2, Sparkles, Target, CalendarDays, Calendar } from 'lucide-react';
+import { MessageSquare, Send, Settings, Check, User, Bot, Loader2, Sparkles, Target, CalendarDays, Calendar, PlusCircle } from 'lucide-react';
 
 const renderMarkdown = (text) => {
   const html = text
@@ -13,12 +13,22 @@ const renderMarkdown = (text) => {
 };
 
 export default function Coach() {
-  const { token, showToast } = useContext(AuthContext);
+  const { token, user, showToast } = useContext(AuthContext);
 
   // Chat State
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: "Hello! I'm Code Clover 🍀, your personalized AI Study Coach. How can I help you plan your learning today?" }
-  ]);
+  const cacheKey = `clover_coach_chat_${user?.id || 'guest'}`;
+
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem(cacheKey);
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return [{ role: 'assistant', content: "Hello! I'm Code Clover 🍀, your personalized AI Study Coach. How can I help you plan your learning today?" }];
+  });
+
+  useEffect(() => {
+    localStorage.setItem(cacheKey, JSON.stringify(messages));
+  }, [messages, cacheKey]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -30,7 +40,8 @@ export default function Coach() {
     daily_hours: 2.0,
     office_time_start: '10:00:00',
     office_time_end: '19:00:00',
-    career_goal: 'Backend Developer'
+    career_goal: 'Backend Developer',
+    auto_create_smart_goals: false
   });
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
 
@@ -201,6 +212,24 @@ export default function Coach() {
                 </div>
               </div>
 
+              <div className="pt-2 border-t border-border mt-2">
+                <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-muted/50 rounded-lg transition-colors">
+                  <div className="relative inline-flex items-center">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer"
+                      checked={prefs.auto_create_smart_goals}
+                      onChange={(e) => setPrefs({...prefs, auto_create_smart_goals: e.target.checked})}
+                    />
+                    <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                  </div>
+                  <div>
+                    <span className="block text-sm font-bold text-foreground">Auto-Create Smart Goals</span>
+                    <span className="block text-xs text-muted-foreground">Allow AI to directly schedule goals in your calendar</span>
+                  </div>
+                </label>
+              </div>
+
               <div className="flex gap-3 pt-3">
                 <button
                   type="button"
@@ -236,13 +265,22 @@ export default function Coach() {
           </h2>
           <p className="text-sm text-muted-foreground">Personalized scheduling and guidance tailored to your goals.</p>
         </div>
-        <button
-          onClick={() => setShowSettings(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground border border-border font-semibold rounded-xl text-sm hover:bg-muted transition-all"
-        >
-          <Settings className="w-4 h-4" />
-          Preferences
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMessages([{ role: 'assistant', content: "Hello! I'm Code Clover 🍀, your personalized AI Study Coach. How can I help you plan your learning today?" }])}
+            className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 text-rose-500 border border-border font-semibold rounded-xl text-sm hover:bg-rose-500/20 transition-all"
+          >
+            <PlusCircle className="w-4 h-4" />
+            New Chat
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground border border-border font-semibold rounded-xl text-sm hover:bg-muted transition-all"
+          >
+            <Settings className="w-4 h-4" />
+            Preferences
+          </button>
+        </div>
       </div>
 
       {/* Quick Actions */}
@@ -322,20 +360,28 @@ export default function Coach() {
         <div className="p-4 bg-muted/30 border-t border-border">
           <form 
             onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
-            className="relative flex items-center"
+            className="relative flex items-end"
           >
-            <input
-              type="text"
+            <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!isLoading && input.trim()) {
+                    sendMessage(input);
+                  }
+                }
+              }}
               placeholder="Ask for a schedule, ask a technical question, or request advice..."
-              className="w-full bg-background border border-input rounded-xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all"
+              className="w-full bg-background border border-input rounded-xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all resize-none overflow-y-auto"
+              rows={3}
               disabled={isLoading}
             />
             <button
               type="submit"
               disabled={isLoading || !input.trim()}
-              className="absolute right-2 p-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="absolute right-2 bottom-3 p-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
             </button>

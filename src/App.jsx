@@ -241,7 +241,7 @@ function AppProviders() {
 
     resetIdleTimer();
 
-    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'keepAliveHeartbeat'];
     const handleUserActivity = () => resetIdleTimer();
 
     events.forEach(event => window.addEventListener(event, handleUserActivity, { passive: true }));
@@ -447,13 +447,17 @@ function AppLayout({ user, stats, theme, toggleTheme, onLogoutRequest }) {
     if (!token) return;
     const heartbeat = async () => {
       try {
-        await fetch(`${API_URL}/smart-goals/heartbeat`, {
+        const res = await fetch(`${API_URL}/smart-goals/heartbeat`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
           }
         });
+        const data = await res.json();
+        if (data.updatedCount && data.updatedCount > 0) {
+          window.dispatchEvent(new Event('keepAliveHeartbeat'));
+        }
       } catch (err) {
         console.error('Heartbeat ping failed:', err);
       }
