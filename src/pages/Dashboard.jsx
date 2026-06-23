@@ -429,18 +429,25 @@ export default function Dashboard({ setActiveTab }) {
             </button>
           </div>
           
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-              <span>{dashboardCourses[0].completed_videos} / {dashboardCourses[0].total_videos} Videos Watched</span>
-              <span>{Math.round((dashboardCourses[0].completed_videos / dashboardCourses[0].total_videos) * 100)}%</span>
-            </div>
-            <div className="w-full bg-secondary rounded-full h-2">
-              <div 
-                className="bg-primary h-2 rounded-full transition-all duration-500" 
-                style={{ width: `${Math.round((dashboardCourses[0].completed_videos / dashboardCourses[0].total_videos) * 100)}%` }}
-              />
-            </div>
-          </div>
+          {(() => {
+            const total = dashboardCourses[0].total_videos || 0;
+            const completed = dashboardCourses[0].completed_videos || 0;
+            const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                  <span>{completed} / {total} Videos Watched</span>
+                  <span>{percent}%</span>
+                </div>
+                <div className="w-full bg-secondary rounded-full h-2">
+                  <div 
+                    className="bg-primary h-2 rounded-full transition-all duration-500" 
+                    style={{ width: `${percent}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
