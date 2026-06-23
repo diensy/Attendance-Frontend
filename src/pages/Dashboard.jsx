@@ -9,7 +9,7 @@ import {
 import { 
   Flame, Award, Calendar, Clock, GitBranch, Github, FileText, 
   FileSpreadsheet, Sparkles, RefreshCw, Plus, CheckCircle2, ChevronRight, UserPlus,
-  Clover, Trash2, Check, BookOpen, BarChart3
+  Clover, Trash2, Check, BookOpen, BarChart3, Code2
 } from 'lucide-react';
 
 export default function Dashboard({ setActiveTab }) {
@@ -48,16 +48,6 @@ export default function Dashboard({ setActiveTab }) {
     });
   };
 
-  // Todo states
-  const [todos, setTodos] = useState([]);
-  const [loadingTodos, setLoadingTodos] = useState(false);
-  const [todoTitle, setTodoTitle] = useState('');
-  const [todoPriority, setTodoPriority] = useState('Medium');
-  const [todoCategory, setTodoCategory] = useState('Node.js');
-  const [todoDueDate, setTodoDueDate] = useState(getLocalDateString());
-  const [todoIsRecurring, setTodoIsRecurring] = useState(false);
-  const [todoRecurrencePattern, setTodoRecurrencePattern] = useState('Daily');
-
   // Local dashboard states
   const [analytics, setAnalytics] = useState({
     todayFocusSeconds: 0,
@@ -92,104 +82,6 @@ export default function Dashboard({ setActiveTab }) {
   const [generatingAi, setGeneratingAi] = useState(false);
   const [dashboardCourses, setDashboardCourses] = useState([]);
   const [dashboardSmartGoals, setDashboardSmartGoals] = useState([]);
-
-  const fetchTodos = async () => {
-    if (!token) return;
-    setLoadingTodos(true);
-    try {
-      const todayStr = getLocalDateString();
-      const res = await fetch(`${API_URL}/todos?date=${todayStr}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTodos(data);
-      }
-    } catch (err) {
-      console.error('Error fetching todos:', err);
-    } finally {
-      setLoadingTodos(false);
-    }
-  };
-
-  const handleAddTodo = async (e) => {
-    e.preventDefault();
-    if (!todoTitle.trim()) return;
-    try {
-      const res = await fetch(`${API_URL}/todos`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          title: todoTitle,
-          priority: todoPriority,
-          category: todoCategory,
-          due_date: todoDueDate,
-          is_recurring: todoIsRecurring,
-          recurrence_pattern: todoIsRecurring ? todoRecurrencePattern : null
-        })
-      });
-      if (res.ok) {
-        setTodoTitle('');
-        setTodoIsRecurring(false);
-        // Refresh list and stats
-        await fetchTodos();
-        await fetchDashboardData();
-        showToast?.('Task created successfully!', 'success');
-      } else {
-        const data = await res.json();
-        showToast?.(data.message || 'Failed to create task', 'error');
-      }
-    } catch (err) {
-      showToast?.('Error creating task: ' + err.message, 'error');
-    }
-  };
-
-  const handleToggleTodo = async (todo) => {
-    try {
-      const res = await fetch(`${API_URL}/todos/${todo.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          is_completed: !todo.is_completed
-        })
-      });
-      if (res.ok) {
-        await fetchTodos();
-        await fetchDashboardData();
-        showToast?.(`Task marked as ${!todo.is_completed ? 'completed' : 'incomplete'}!`, 'success');
-      } else {
-        const data = await res.json();
-        showToast?.(data.message || 'Failed to update task', 'error');
-      }
-    } catch (err) {
-      showToast?.('Error updating task: ' + err.message, 'error');
-    }
-  };
-
-  const handleDeleteTodo = async (id) => {
-    try {
-      const res = await fetch(`${API_URL}/todos/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        await fetchTodos();
-        await fetchDashboardData();
-        showToast?.('Task deleted.', 'info');
-      } else {
-        const data = await res.json();
-        showToast?.(data.message || 'Failed to delete task', 'error');
-      }
-    } catch (err) {
-      showToast?.('Error deleting task: ' + err.message, 'error');
-    }
-  };
 
   const fetchDashboardData = async () => {
     if (!token) return;
@@ -241,10 +133,7 @@ export default function Dashboard({ setActiveTab }) {
         setDashboardSmartGoals(await sgRes.json());
       }
 
-      // 4. Fetch Todos
-      await fetchTodos();
-
-      // 5. Update core stats
+      // Update core stats
       await fetchStats();
 
     } catch (err) {
@@ -417,19 +306,19 @@ export default function Dashboard({ setActiveTab }) {
           </div>
         </div>
 
-        {/* Metric 4: Todos Completed */}
+        {/* Metric 4: Coding Tasks Done */}
         <div className="clover-card p-5 flex flex-col justify-between h-32">
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Todos Completed</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Coding Tasks Done</span>
             <div className="p-1.5 bg-secondary text-emerald-500 rounded-md border border-border/40">
-              <CheckCircle2 className="w-4 h-4" />
+              <Code2 className="w-4 h-4" />
             </div>
           </div>
           <div>
             <h3 className="font-outfit font-extrabold text-2xl text-foreground">
-              {stats.todosCompletedToday || 0}/{stats.todosTotalToday || 0}
+              {stats.codingCompleted || 0}/{stats.codingTotal || 0}
             </h3>
-            <p className="text-[10px] text-muted-foreground mt-1 truncate">Today's checklist progress</p>
+            <p className="text-[10px] text-muted-foreground mt-1 truncate">Total coding challenges solved</p>
           </div>
         </div>
 
@@ -451,21 +340,32 @@ export default function Dashboard({ setActiveTab }) {
           </div>
         </div>
 
-        {/* Metric 6: GitHub Commits */}
-        <div className="clover-card p-5 flex flex-col justify-between h-32">
-          <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">GitHub Commits</span>
-            <div className="p-1.5 bg-secondary text-foreground rounded-md border border-border/40">
-              <GitBranch className="w-4 h-4" />
+        {/* Metric 6: XP Points & Clover Level */}
+        {(() => {
+          const xp = stats.xpPoints || 0;
+          const stages = [
+            { min: 0,   label: 'Seed',         color: 'text-stone-500',   bg: 'bg-stone-500/10'   },
+            { min: 50,  label: 'Sprout',        color: 'text-lime-600',    bg: 'bg-lime-500/10'    },
+            { min: 150, label: 'Sapling',       color: 'text-emerald-600', bg: 'bg-emerald-500/10' },
+            { min: 300, label: 'Young Clover',  color: 'text-green-600',   bg: 'bg-green-500/10'   },
+            { min: 600, label: 'Full Clover 🍀', color: 'text-primary',     bg: 'bg-primary/10'     },
+          ];
+          const stage = [...stages].reverse().find(s => xp >= s.min) || stages[0];
+          return (
+            <div className="clover-card p-5 flex flex-col justify-between h-32">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">XP Points</span>
+                <div className={`p-1.5 ${stage.bg} ${stage.color} rounded-md border border-border/40`}>
+                  <Sparkles className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <h3 className="font-outfit font-extrabold text-2xl text-foreground">{xp} XP</h3>
+                <p className={`text-[10px] font-bold mt-1 truncate ${stage.color}`}>{stage.label} · {stats.streak || 0} day streak 🔥</p>
+              </div>
             </div>
-          </div>
-          <div>
-            <h3 className="font-outfit font-extrabold text-2xl text-foreground">
-              {stats.todayCommits || 0} Commits
-            </h3>
-            <p className="text-[10px] text-muted-foreground mt-1 truncate">Today's synced commits</p>
-          </div>
-        </div>
+          );
+        })()}
 
       </div>
 
@@ -608,17 +508,19 @@ export default function Dashboard({ setActiveTab }) {
             )}
           </div>
 
-          <div className="space-y-1.5 mt-4">
-            {chartData.map((item, idx) => (
-              <div key={item.subject} className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
-                  <span>{item.subject}</span>
+          {hasSubjectData && (
+            <div className="space-y-1.5 mt-4">
+              {chartData.map((item, idx) => (
+                <div key={item.subject} className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
+                    <span>{item.subject}</span>
+                  </div>
+                  <span className="text-foreground">{item.hours} hrs</span>
                 </div>
-                <span className="text-foreground">{item.hours} hrs</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Chart 3: Productivity Breakdown Card */}
@@ -655,16 +557,16 @@ export default function Dashboard({ setActiveTab }) {
                 </div>
               </div>
 
-              {/* 2. Focus Time (25 pts) */}
+              {/* 2. Focus Time (30 pts) */}
               <div>
                 <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-foreground">Focus Time (25 pts)</span>
-                  <span className="text-muted-foreground">{(stats.productivityBreakdown?.focusTime ?? Math.min(25, Number(((stats.todayFocusSeconds || 0) / 7200) * 25).toFixed(1)))} / 25</span>
+                  <span className="text-foreground">Focus Time (30 pts)</span>
+                  <span className="text-muted-foreground">{(stats.productivityBreakdown?.focusTime ?? 0)} / 30</span>
                 </div>
                 <div className="w-full bg-secondary rounded-full h-2 relative overflow-hidden">
                   <div 
                     className="h-full rounded-full bg-sky-500 transition-all duration-500" 
-                    style={{ width: `${(((stats.productivityBreakdown?.focusTime ?? Math.min(25, ((stats.todayFocusSeconds || 0) / 7200) * 25))) / 25) * 100}%` }}
+                    style={{ width: `${((stats.productivityBreakdown?.focusTime ?? 0) / 30) * 100}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-1">
@@ -673,21 +575,21 @@ export default function Dashboard({ setActiveTab }) {
                 </div>
               </div>
 
-              {/* 3. Todo Completion (25 pts) */}
+              {/* 3. Smart Focus & Coding (20 pts) */}
               <div>
                 <div className="flex justify-between text-xs font-semibold mb-1">
-                  <span className="text-foreground">Todo Completion (25 pts)</span>
-                  <span className="text-muted-foreground">{(stats.productivityBreakdown?.todos ?? (stats.todosTotalToday > 0 ? Number(((stats.todosCompletedToday || 0) / stats.todosTotalToday) * 25).toFixed(1) : 0))} / 25</span>
+                  <span className="text-foreground">Smart Focus &amp; Coding (20 pts)</span>
+                  <span className="text-muted-foreground">{(stats.productivityBreakdown?.smartCoding ?? 0)} / 20</span>
                 </div>
                 <div className="w-full bg-secondary rounded-full h-2 relative overflow-hidden">
                   <div 
                     className="h-full rounded-full bg-indigo-500 transition-all duration-500" 
-                    style={{ width: `${(((stats.productivityBreakdown?.todos ?? (stats.todosTotalToday > 0 ? ((stats.todosCompletedToday || 0) / stats.todosTotalToday) * 25 : 0))) / 25) * 100}%` }}
+                    style={{ width: `${((stats.productivityBreakdown?.smartCoding ?? 0) / 20) * 100}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between items-center text-[10px] text-muted-foreground mt-1">
-                  <span>Completed: {stats.todosCompletedToday || 0}/{stats.todosTotalToday || 0} tasks</span>
-                  <span>{stats.todosTotalToday === 0 ? 'No tasks scheduled (0 pts)' : `${Math.round(((stats.todosCompletedToday || 0) / (stats.todosTotalToday || 1)) * 100)}% done`}</span>
+                  <span>Challenges: {stats.codingCompletedToday || 0} completed today</span>
+                  <span>Includes smart focus sessions</span>
                 </div>
               </div>
 
@@ -721,209 +623,137 @@ export default function Dashboard({ setActiveTab }) {
 
       </div>
 
-      {/* TODO MANAGER WIDGET */}
+      {/* ── ADDITIONAL REAL-DATA-DRIVEN ANALYTICS CHARTS ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left: Today's Tasks List */}
-        <div className="lg:col-span-2 clover-card p-6 flex flex-col justify-between">
-          <div className="w-full">
-            <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
-              <div>
-                <h3 className="font-outfit font-bold text-base text-foreground">Today's Tasks Checklist</h3>
-                <p className="text-xs text-muted-foreground">Log tasks, prioritize, and toggle completion to update your score.</p>
-              </div>
-              <span className="text-xs font-bold text-secondary-foreground bg-secondary px-3 py-1 rounded-full border border-border">
-                {todos.filter(t => t.is_completed).length} / {todos.length} Completed
-              </span>
-            </div>
-
-            {loadingTodos ? (
-              <div className="h-64 flex items-center justify-center">
-                <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-              </div>
-            ) : todos.length > 0 ? (
-              <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
-                {todos.map(todo => {
-                  let priorityCls = '';
-                  if (todo.priority === 'High') {
-                    priorityCls = 'bg-red-500/10 text-red-500 border-red-500/20';
-                  } else if (todo.priority === 'Medium') {
-                    priorityCls = 'bg-amber-500/10 text-amber-500 border-amber-500/20';
-                  } else {
-                    priorityCls = 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-                  }
-
-                  return (
-                    <div 
-                      key={todo.id}
-                      className="p-3.5 rounded-xl bg-muted/20 border border-border flex items-center justify-between gap-3.5 hover:border-primary/20 transition-all group"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        {/* Checkbox button */}
-                        <button
-                          onClick={() => handleToggleTodo(todo)}
-                          className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all shrink-0 ${
-                            todo.is_completed 
-                              ? 'bg-primary border-primary text-primary-foreground' 
-                              : 'border-input hover:border-primary/60 bg-background'
-                          }`}
-                        >
-                          {todo.is_completed && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                        </button>
-
-                        <div className="min-w-0">
-                          <p className={`text-xs font-semibold text-foreground truncate ${
-                            todo.is_completed ? 'line-through text-muted-foreground font-medium' : ''
-                          }`}>
-                            {todo.title}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${priorityCls}`}>
-                              {todo.priority}
-                            </span>
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-secondary text-secondary-foreground rounded border border-border">
-                              {todo.category}
-                            </span>
-                            {todo.is_recurring && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-indigo-500/10 text-indigo-500 border border-indigo-500/20 rounded flex items-center gap-1">
-                                <RefreshCw className="w-2.5 h-2.5 shrink-0" />
-                                <span>{todo.recurrence_pattern}</span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <button
-                        onClick={() => handleDeleteTodo(todo.id)}
-                        className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 opacity-0 group-hover:opacity-100 transition-all shrink-0"
-                        title="Delete task"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-16 bg-muted/10 rounded-xl border border-dashed border-border my-2">
-                <CheckCircle2 className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-                <h4 className="font-outfit font-bold text-xs text-foreground">No tasks scheduled for today</h4>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
-                  Add tasks in the quick creator panel to optimize your productivity schedule.
-                </p>
-              </div>
-            )}
+        {/* Chart A: Smart Focus Sessions Success Rate (Pie Chart) */}
+        <div className="clover-card p-6 flex flex-col justify-between">
+          <div>
+            <h3 className="font-outfit font-bold text-base text-foreground mb-1">Smart Session Success Rate</h3>
+            <p className="text-xs text-muted-foreground mb-5">Proportion of completed vs interrupted focus sessions.</p>
           </div>
-          <div></div> {/* placeholder for flex space */}
+          
+          <div className="h-48 relative flex items-center justify-center">
+            {(() => {
+              const sgStats = stats.smartGoalsStats || [];
+              const sgPieData = sgStats.length > 0
+                ? sgStats.map(s => ({ name: s.status, value: parseInt(s.count) }))
+                : [];
+              const hasSgData = sgPieData.some(d => d.value > 0);
+              const SG_COLORS = ['#10b981', '#f43f5e', '#3b82f6']; // Completed: Green, Interrupted: Red, Active: Blue
+
+              if (!hasSgData) {
+                return (
+                  <div className="text-center py-8">
+                    <Clover className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2 animate-float" />
+                    <span className="text-xs text-muted-foreground">No smart goals sessions logged yet.</span>
+                  </div>
+                );
+              }
+
+              return (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={sgPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={65}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {sgPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={SG_COLORS[index % SG_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [`${value} sessions`, 'Count']} />
+                    <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                  </PieChart>
+                </ResponsiveContainer>
+              );
+            })()}
+          </div>
         </div>
 
-        {/* Right: Add Task Form */}
+        {/* Chart B: Classroom Course Playlist Progress (Bar Chart) */}
         <div className="clover-card p-6 flex flex-col justify-between">
-          <div className="w-full">
-            <div className="flex items-center gap-3 border-b border-border pb-4 mb-4">
-              <div className="p-1.5 bg-secondary text-primary rounded-md border border-border/40">
-                <Plus className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="font-outfit font-bold text-base text-foreground">Quick Task Creator</h3>
-                <p className="text-xs text-muted-foreground">Add individual or recurring study tasks.</p>
-              </div>
-            </div>
+          <div>
+            <h3 className="font-outfit font-bold text-base text-foreground mb-1">Classroom Playlists Progress</h3>
+            <p className="text-xs text-muted-foreground mb-5">Completion percentage for all enrolled courses.</p>
+          </div>
 
-            <form onSubmit={handleAddTodo} className="space-y-3.5">
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Task Title</label>
-                <input 
-                  type="text"
-                  value={todoTitle}
-                  onChange={(e) => setTodoTitle(e.target.value)}
-                  placeholder="e.g. Solve binary search problems"
-                  className="w-full bg-background border border-input rounded-md py-2 px-3 text-xs text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-primary transition-all"
-                  required
-                />
-              </div>
+          <div className="h-48 flex items-center justify-center">
+            {(() => {
+              const courseStats = stats.courseProgressStats || [];
+              const courseBarData = courseStats.map(c => ({
+                name: c.title.length > 15 ? `${c.title.substring(0, 15)}...` : c.title,
+                progress: c.total_videos > 0 ? Math.round((c.watched_videos / c.total_videos) * 100) : 0
+              }));
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Priority</label>
-                  <select
-                    value={todoPriority}
-                    onChange={(e) => setTodoPriority(e.target.value)}
-                    className="w-full bg-background border border-input rounded-md py-2 px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-primary transition-all"
-                  >
-                    <option value="High">🔴 High</option>
-                    <option value="Medium">🟡 Medium</option>
-                    <option value="Low">🟢 Low</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Category</label>
-                  <select
-                    value={todoCategory}
-                    onChange={(e) => setTodoCategory(e.target.value)}
-                    className="w-full bg-background border border-input rounded-md py-2 px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-primary transition-all"
-                  >
-                    <option value="Node.js">Node.js</option>
-                    <option value="Python">Python</option>
-                    <option value="DSA">DSA</option>
-                    <option value="AI">AI</option>
-                    <option value="Personal Learning">Personal Learning</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Due Date</label>
-                <DatePicker 
-                  value={todoDueDate}
-                  onChange={(val) => setTodoDueDate(val)}
-                  placeholder="Select due date"
-                />
-              </div>
-
-              {/* Recurrence setting */}
-              <div className="border border-border/60 bg-muted/10 p-3 rounded-lg space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground">Recurring task?</span>
-                  <button
-                    type="button"
-                    onClick={() => setTodoIsRecurring(!todoIsRecurring)}
-                    className={`w-8 h-4.5 rounded-full transition-all relative shrink-0 ${
-                      todoIsRecurring ? 'bg-primary' : 'bg-input'
-                    }`}
-                  >
-                    <div className={`w-3.5 h-3.5 rounded-full bg-background absolute top-0.5 transition-all ${
-                      todoIsRecurring ? 'left-4' : 'left-0.5'
-                    }`} />
-                  </button>
-                </div>
-
-                {todoIsRecurring && (
-                  <div className="animate-in fade-in slide-in-from-top-1 duration-150">
-                    <label className="block text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Recurrence Pattern</label>
-                    <select
-                      value={todoRecurrencePattern}
-                      onChange={(e) => setTodoRecurrencePattern(e.target.value)}
-                      className="w-full bg-background border border-input rounded-md py-1.5 px-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-primary transition-all"
-                    >
-                      <option value="Daily">Daily</option>
-                      <option value="Weekly">Weekly</option>
-                    </select>
+              if (courseBarData.length === 0) {
+                return (
+                  <div className="text-center py-8">
+                    <BookOpen className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2 animate-float" />
+                    <span className="text-xs text-muted-foreground">No courses enrolled yet.</span>
                   </div>
-                )}
-              </div>
+                );
+              }
 
-              <button
-                type="submit"
-                className="w-full py-2 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-all shadow-sm flex items-center justify-center gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Task</span>
-              </button>
-            </form>
+              return (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={courseBarData} layout="vertical" margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                    <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} />
+                    <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} width={80} />
+                    <Tooltip formatter={(v) => [`${v}%`, 'Completed']} />
+                    <Bar dataKey="progress" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} barSize={12} />
+                  </BarChart>
+                </ResponsiveContainer>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* Chart C: Coding Challenges Progress by Subject (Stacked Bar Chart) */}
+        <div className="clover-card p-6 flex flex-col justify-between">
+          <div>
+            <h3 className="font-outfit font-bold text-base text-foreground mb-1">Coding Progress by Subject</h3>
+            <p className="text-xs text-muted-foreground mb-5">Tasks solved vs remaining tasks per subject.</p>
+          </div>
+
+          <div className="h-48 flex items-center justify-center">
+            {(() => {
+              const codingStats = stats.codingSubjectStats || [];
+              const codingBarData = codingStats.map(c => ({
+                subject: c.subject,
+                Completed: c.completed,
+                Pending: c.total - c.completed
+              }));
+
+              if (codingBarData.length === 0) {
+                return (
+                  <div className="text-center py-8">
+                    <Code2 className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2 animate-float" />
+                    <span className="text-xs text-muted-foreground">No coding challenges initiated yet.</span>
+                  </div>
+                );
+              }
+
+              return (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={codingBarData} margin={{ top: 10, right: 10, left: -25, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="subject" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} />
+                    <Tooltip />
+                    <Legend iconType="circle" fontSize={10} />
+                    <Bar dataKey="Completed" stackId="a" fill="#10b981" />
+                    <Bar dataKey="Pending" stackId="a" fill="hsl(var(--muted-foreground)/0.15)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              );
+            })()}
           </div>
         </div>
 

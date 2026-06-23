@@ -1,12 +1,12 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext, API_URL, formatDate } from '../App';
 import { 
   User, Shield, Key, Camera, Loader2, CheckCircle2, AlertCircle, 
-  HelpCircle, LogOut, Mail, Calendar
+  HelpCircle, LogOut, Mail, Calendar, Flame, Sparkles, TreePine
 } from 'lucide-react';
 
 export default function Profile() {
-  const { token, user, verify, logout, fetchStats, showToast } = useContext(AuthContext);
+  const { token, user, verify, logout, fetchStats, showToast, stats } = useContext(AuthContext);
 
   // States
   const [profilePic, setProfilePic] = useState(user.profile_pic_url || '');
@@ -40,7 +40,6 @@ export default function Profile() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Enforce 3MB limit
     if (file.size > 3 * 1024 * 1024) {
       setPicError('Image must be under 3MB.');
       return;
@@ -68,7 +67,6 @@ export default function Profile() {
         if (!res.ok) throw new Error(data.message || 'Image upload failed');
 
         setProfilePic(data.user.profile_pic_url);
-        // Force user context refresh
         user.profile_pic_url = data.user.profile_pic_url;
         const msg = 'Profile picture updated successfully!';
         setPicSuccess(msg);
@@ -83,7 +81,6 @@ export default function Profile() {
     };
   };
 
-  // Handle password update
   const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     setPassError('');
@@ -131,7 +128,6 @@ export default function Profile() {
     }
   };
 
-  // Handle security question setup
   const handleSecurityQuestionSubmit = async (e) => {
     e.preventDefault();
     setQuestionError('');
@@ -159,7 +155,6 @@ export default function Profile() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Setup failed');
 
-      // Update user context
       user.security_question = data.user.security_question;
       const msg = 'Security verification question saved!';
       setQuestionSuccess(msg);
@@ -178,22 +173,27 @@ export default function Profile() {
     return user.username ? user.username.charAt(0).toUpperCase() : 'C';
   };
 
+  const xp = stats?.xpPoints || 0;
+  const streak = stats?.streak || 0;
+
   return (
-    <div className="space-y-8 max-w-4xl mx-auto pb-12">
+    <div className="space-y-8 max-w-5xl mx-auto pb-12">
       
       {/* HEADER */}
       <div>
-        <h2 className="font-outfit font-extrabold text-3xl text-foreground">Profile Settings</h2>
-        <p className="text-sm text-muted-foreground mt-1">Manage your avatar, configure security credentials, and set up secondary recoveries.</p>
+        <h2 className="font-outfit font-extrabold text-3xl text-foreground">Profile</h2>
+        <p className="text-sm text-muted-foreground mt-1">Your Clover journey, account settings, and security credentials.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* LEFT CARD: AVATAR AND META INFO */}
+        {/* LEFT COLUMN */}
         <div className="lg:col-span-1 space-y-6">
+
+          {/* AVATAR CARD */}
           <div className="clover-card p-6 flex flex-col items-center text-center">
             
-            {/* Avatar upload wrapper */}
+            {/* Avatar */}
             <div className="relative group mb-4">
               {profilePic ? (
                 <img 
@@ -207,16 +207,10 @@ export default function Profile() {
                 </div>
               )}
 
-              {/* Upload Overlay hover */}
               <label className="absolute inset-0 bg-black/45 rounded-full flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-all duration-200">
                 <Camera className="w-6 h-6 text-white" />
                 <span className="text-[10px] text-white font-bold mt-1 uppercase tracking-wider">Upload</span>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleFileChange} 
-                  className="hidden" 
-                />
+                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
               </label>
 
               {uploadingPic && (
@@ -235,39 +229,47 @@ export default function Profile() {
             {picError && (
               <p className="text-xs font-bold text-destructive bg-destructive/10 border border-destructive/20 px-3 py-1.5 rounded-md mt-3">{picError}</p>
             )}
-
             {picSuccess && (
               <p className="text-xs font-bold text-primary bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-md mt-3">{picSuccess}</p>
             )}
 
-            <div className="w-full border-t border-border my-6"></div>
+            <div className="w-full border-t border-border my-5" />
 
-            {/* Quick stats list */}
+            {/* Quick stats */}
             <div className="w-full text-left space-y-3">
               <div className="flex justify-between items-center text-sm font-semibold text-muted-foreground">
-                <span className="flex items-center gap-2"><Calendar className="w-4.5 h-4.5 text-muted-foreground" /> Joined</span>
+                <span className="flex items-center gap-2"><Calendar className="w-4 h-4" /> Joined</span>
                 <span className="text-foreground">{formatDate(user.created_at || Date.now())}</span>
               </div>
               <div className="flex justify-between items-center text-sm font-semibold text-muted-foreground">
-                <span className="flex items-center gap-2"><Shield className="w-4.5 h-4.5 text-muted-foreground" /> Account Status</span>
+                <span className="flex items-center gap-2"><Shield className="w-4 h-4" /> Status</span>
                 <span className={`px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wider ${user.is_verified ? 'bg-primary/15 text-primary' : 'bg-destructive/10 text-destructive'}`}>
                   {user.is_verified ? 'Verified' : 'Pending'}
                 </span>
+              </div>
+              <div className="flex justify-between items-center text-sm font-semibold text-muted-foreground">
+                <span className="flex items-center gap-2"><Flame className="w-4 h-4 text-amber-500" /> Streak</span>
+                <span className="text-foreground font-bold">{streak} days</span>
+              </div>
+              <div className="flex justify-between items-center text-sm font-semibold text-muted-foreground">
+                <span className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Total XP</span>
+                <span className="text-foreground font-bold">{xp} XP</span>
               </div>
             </div>
 
             <button 
               onClick={logout}
-              className="mt-8 w-full flex items-center justify-center gap-2 border border-destructive/25 bg-destructive/5 hover:bg-destructive/10 text-destructive py-2.5 rounded-md text-xs font-bold transition-all"
+              className="mt-6 w-full flex items-center justify-center gap-2 border border-destructive/25 bg-destructive/5 hover:bg-destructive/10 text-destructive py-2.5 rounded-md text-xs font-bold transition-all"
             >
-              <LogOut className="w-4.5 h-4.5" />
-              <span>Log out Account</span>
+              <LogOut className="w-4 h-4" />
+              <span>Log out</span>
             </button>
-
           </div>
+
+
         </div>
 
-        {/* RIGHT COLUMN: CHANGE PASSWORD & SECURITY QUESTIONS */}
+        {/* RIGHT COLUMN */}
         <div className="lg:col-span-2 space-y-8">
           
           {/* SECURITY QUESTION FORM */}

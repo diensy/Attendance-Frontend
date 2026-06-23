@@ -319,6 +319,48 @@ export default function SmartGoals() {
                     </button>
                   </div>
                 )}
+
+                {/* Recovery actions for auto-interrupted goals */}
+                {goal.status === 'Interrupted' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`${API_URL}/smart-goals/${goal.id}/resume`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${token}` }
+                          });
+                          if (res.ok) {
+                            showToast('Session restored to Active! ✅', 'success');
+                            fetchGoals();
+                          }
+                        } catch (err) { console.error(err); }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 transition-colors"
+                      title="Resume this goal — use if it was falsely marked as interrupted"
+                    >
+                      <Play className="w-4 h-4" /> Resume
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          // Resume first, then complete
+                          await fetch(`${API_URL}/smart-goals/${goal.id}/resume`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+                          const res = await fetch(`${API_URL}/smart-goals/${goal.id}/complete`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+                          if (res.ok) {
+                            showToast('Session marked as Completed! 🎉', 'success');
+                            fetchGoals();
+                          }
+                        } catch (err) { console.error(err); }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 transition-colors"
+                      title="Mark as completed — use if you finished the session but it was incorrectly interrupted"
+                    >
+                      <CheckCircle2 className="w-4 h-4" /> I Finished It
+                    </button>
+                  </div>
+                )}
+
               </div>
             ))}
           </div>

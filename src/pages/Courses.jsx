@@ -34,6 +34,13 @@ export default function Courses() {
   const playerRef = useRef(null);
   const playerPollerRef = useRef(null);
   const saveTimeoutRef = useRef(null);
+  const notesRef = useRef(notes);
+
+  // Keep notesRef in sync with notes state
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+
 
   // Fetch all courses
   const fetchCourses = async () => {
@@ -161,6 +168,51 @@ export default function Courses() {
     }
   };
 
+  const saveProgress = async (video, player, currentNotes, isAutoSaveStatus = false) => {
+    if (!video || !player || !player.getCurrentTime || !player.getPlayerState) return;
+    try {
+      // Only save if player is playing (1), paused (2), buffering (3), or ended (0)
+      const state = player.getPlayerState();
+      if (state !== 1 && state !== 2 && state !== 3 && state !== 0) {
+        return;
+      }
+
+      const current = Math.round(player.getCurrentTime());
+      const startSec = video.start_seconds || 0;
+      const duration = video.duration_seconds || 1;
+      const relativeWatched = Math.min(duration, Math.max(0, current - startSec));
+      if (relativeWatched >= 0) {
+        if (isAutoSaveStatus) setSaveStatus('Saving...');
+        const res = await fetch(`${API_URL}/courses/videos/${video.id}/progress`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            watched_seconds: relativeWatched,
+            notes: currentNotes
+          })
+        });
+        if (res.ok) {
+          if (isAutoSaveStatus) setSaveStatus('Saved');
+          setVideos(prev => prev.map(v => v.id === video.id ? { ...v, notes: currentNotes, watched_seconds: relativeWatched } : v));
+          setActiveVideo(prev => {
+            if (prev && prev.id === video.id) {
+              return { ...prev, notes: currentNotes, watched_seconds: relativeWatched };
+            }
+            return prev;
+          });
+        } else if (isAutoSaveStatus) {
+          setSaveStatus('Error saving');
+        }
+      }
+    } catch (err) {
+      console.error('Save progress failed:', err);
+      if (isAutoSaveStatus) setSaveStatus('Error saving');
+    }
+  };
+
   // Auto-save notes functionality (saves notes when user types, debounced)
   useEffect(() => {
     if (!activeVideo) return;
@@ -168,37 +220,16 @@ export default function Courses() {
 
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(async () => {
-      setSaveStatus('Saving...');
-      try {
-        const res = await fetch(`${API_URL}/courses/videos/${activeVideo.id}/progress`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            notes,
-            watched_seconds: playerRef.current ? Math.round(playerRef.current.getCurrentTime()) : 0
-          })
-        });
-        if (res.ok) {
-          setSaveStatus('Saved');
-          // Update local videos state notes field
-          setVideos(prev => prev.map(v => v.id === activeVideo.id ? { ...v, notes } : v));
-        } else {
-          setSaveStatus('Error saving');
-        }
-      } catch (err) {
-        setSaveStatus('Error saving');
-      }
+      await saveProgress(activeVideo, playerRef.current, notes, true);
     }, 2000);
 
     return () => clearTimeout(saveTimeoutRef.current);
-  }, [notes, activeVideo, saveStatus]);
+  }, [notes, activeVideo?.id, saveStatus]);
 
   // Load YouTube Player Script & Embed Player
   useEffect(() => {
     if (!activeVideo) return;
+    const currentVideo = activeVideo;
 
     // Load Youtube Iframe API script if not loaded
     if (!window.YT) {
@@ -219,7 +250,7 @@ export default function Courses() {
       playerRef.current = new window.YT.Player('youtube-player-frame', {
         height: '100%',
         width: '100%',
-        videoId: activeVideo.video_id,
+        videoId: currentVideo.video_id,
         playerVars: {
           autoplay: 0,
           controls: 1,
@@ -229,9 +260,9 @@ export default function Courses() {
         },
         events: {
           onReady: (event) => {
-            const startSec = activeVideo.start_seconds || 0;
-            const watched = activeVideo.watched_seconds || 0;
-            const duration = activeVideo.duration_seconds || 0;
+            const startSec = currentVideo.start_seconds || 0;
+            const watched = currentVideo.watched_seconds || 0;
+            const duration = currentVideo.duration_seconds || 0;
             
             // Seek to previous watched seconds or start_seconds
             const seekPos = watched > 0 && watched < duration - 10 
@@ -246,6 +277,9 @@ export default function Courses() {
             // YT.PlayerState.ENDED is 0
             if (event.data === window.YT.PlayerState.ENDED) {
               handleVideoComplete(true);
+            } else if (event.data === window.YT.PlayerState.PAUSED) {
+              // Save progress immediately on pause
+              saveProgress(currentVideo, playerRef.current, notesRef.current);
             }
           }
         }
@@ -255,28 +289,16 @@ export default function Courses() {
       if (playerPollerRef.current) clearInterval(playerPollerRef.current);
       
       // Periodically update watched seconds on backend (every 10 seconds)
+      let lastSavedProgress = currentVideo.watched_seconds || 0;
       playerPollerRef.current = setInterval(async () => {
         if (playerRef.current && playerRef.current.getCurrentTime) {
           const current = Math.round(playerRef.current.getCurrentTime());
-          const startSec = activeVideo.start_seconds || 0;
-          const duration = activeVideo.duration_seconds || 1;
+          const startSec = currentVideo.start_seconds || 0;
+          const duration = currentVideo.duration_seconds || 1;
           const relativeWatched = Math.min(duration, Math.max(0, current - startSec));
-          if (relativeWatched > 0 && relativeWatched % 10 === 0) {
-            try {
-              await fetch(`${API_URL}/courses/videos/${activeVideo.id}/progress`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                  watched_seconds: relativeWatched,
-                  notes
-                })
-              });
-            } catch (err) {
-              console.error('Periodic progress sync failed:', err.message);
-            }
+          if (relativeWatched >= 0 && relativeWatched !== lastSavedProgress) {
+            await saveProgress(currentVideo, playerRef.current, notesRef.current);
+            lastSavedProgress = relativeWatched;
           }
         }
       }, 10000);
@@ -290,8 +312,10 @@ export default function Courses() {
 
     return () => {
       if (playerPollerRef.current) clearInterval(playerPollerRef.current);
+      saveProgress(currentVideo, playerRef.current, notesRef.current);
     };
-  }, [activeVideo]);
+  }, [activeVideo?.id]);
+
 
   // Handle Video Completion
   const handleVideoComplete = async (isAutoEnd = false) => {

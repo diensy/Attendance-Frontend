@@ -6,7 +6,7 @@ import {
 import {
   Clover, LayoutDashboard, Timer, Target, BookOpen,
   Sun, Moon, LogOut, Menu, X, Award, Flame, User,
-  AlertCircle, ChevronDown, CheckSquare, Youtube, GitFork, MessageSquare, Activity, Code2
+  AlertCircle, ChevronDown, CheckSquare, Youtube, GitFork, MessageSquare, Activity, Code2, TreePine
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import FocusTimerPage from './components/FocusTimer';
@@ -17,6 +17,7 @@ import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 import EmailVerificationPage from './pages/Verify';
 import ProfilePage from './pages/Profile';
+import TreeShowcase from './pages/TreeShowcase';
 import CoursesPage from './pages/Courses';
 import RoadmapsPage from './pages/Roadmaps';
 import CoachPage from './pages/Coach';
@@ -165,7 +166,7 @@ function AppProviders() {
   const [user,  setUser]    = useState(null);
   const [stats, setStats]   = useState({
     totalPresent: 0, totalDays: 0, attendancePercentage: 0,
-    totalStudyHours: 0, streak: 0, badges: [],
+    totalStudyHours: 0, streak: 0, badges: [], xpPoints: 0,
   });
   const [loading,           setLoading]           = useState(true);
   const [theme,             setTheme]             = useState(localStorage.getItem('clover_theme') || 'light');
@@ -195,7 +196,11 @@ function AppProviders() {
       try {
         const res = await fetch(`${API_URL}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
         if (res.ok) {
-          setUser(await res.json());
+          const userData = await res.json();
+          setUser(userData);
+          if (userData.loginBonusAwarded) {
+            showToast('Daily login bonus: +1 XP awarded! 🍀', 'success');
+          }
           await fetchStats(token);
         } else {
           logout();
@@ -208,21 +213,24 @@ function AppProviders() {
     })();
   }, [token]);
 
-  // Handle tab closure
+  // Handle actual tab/browser closure (NOT same-app navigation)
+  // We use a 'pagehide' event with persisted=false to distinguish real closes from navigations.
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (token) {
-        // keepalive: true allows the request to finish even after the tab is closed
-        fetch(`${API_URL}/smart-goals/logout`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          keepalive: true
-        }).catch(console.error);
+    const handlePageHide = (e) => {
+      // e.persisted is true when the page is going into the back-forward cache (navigation), false on real close
+      if (!e.persisted && token) {
+        // sendBeacon can't send Authorization headers, so we pass the token as a query param
+        // (the auth middleware supports ?token= as a fallback)
+        navigator.sendBeacon(
+          `${API_URL}/smart-goals/logout?token=${token}`,
+          new Blob([JSON.stringify({})], { type: 'application/json' })
+        );
       }
     };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => window.removeEventListener('pagehide', handlePageHide);
   }, [token]);
+
 
   // Handle 30-minute idle logout
   useEffect(() => {
@@ -272,6 +280,9 @@ function AppProviders() {
     if (!res.ok) throw new Error(data.message || 'Login failed');
     localStorage.setItem('clover_token', data.token);
     setToken(data.token); setUser(data.user);
+    if (data.loginBonusAwarded) {
+      showToast('Daily login bonus: +1 XP awarded! 🍀', 'success');
+    }
     await fetchStats(data.token);
     navigate('/dashboard');
   };
@@ -322,9 +333,21 @@ function AppProviders() {
       }
     }
     localStorage.removeItem('clover_token');
+    // Clear FocusTimer localStorage items
+    localStorage.removeItem('clover_timer_mode');
+    localStorage.removeItem('clover_timer_is_running');
+    localStorage.removeItem('clover_timer_custom_minutes');
+    localStorage.removeItem('clover_timer_time_left');
+    localStorage.removeItem('clover_timer_stopwatch_seconds');
+    localStorage.removeItem('clover_timer_total_duration');
+    localStorage.removeItem('clover_timer_sound_enabled');
+    localStorage.removeItem('clover_timer_notify_enabled');
+    localStorage.removeItem('clover_timer_last_updated');
+
     setToken(null); setUser(null);
     setStats({ totalPresent: 0, totalDays: 0, attendancePercentage: 0, totalStudyHours: 0, streak: 0, badges: [] });
     navigate('/login');
+
   };
 
   const updateProfile = async (githubUsername) => {
@@ -464,7 +487,8 @@ function AppLayout({ user, stats, theme, toggleTheme, onLogoutRequest }) {
     };
 
     heartbeat(); // Initial ping
-    const intervalId = setInterval(heartbeat, 30000);
+    // Fire every 15 seconds so the scheduler's 90s threshold is never hit during normal use
+    const intervalId = setInterval(heartbeat, 15000);
     return () => clearInterval(intervalId);
   }, [token]);
 
@@ -493,6 +517,8 @@ function AppLayout({ user, stats, theme, toggleTheme, onLogoutRequest }) {
     '/coach':     '🤖 Personalized AI Study Coach',
     '/notes':     '📋 Study Notes & AI Insight Logs',
     '/profile':   '👤 Profile Settings',
+    '/tree':      '🍀 Your Growing Clover Tree',
+    '/seed':      '🍀 Your Growing Clover Tree',
   };
   const pageTitle = pageTitles[location.pathname] || '🍀 Code Clover';
 
@@ -639,6 +665,13 @@ function AppLayout({ user, stats, theme, toggleTheme, onLogoutRequest }) {
                       <User className="w-3.5 h-3.5 text-primary" />
                       Profile &amp; Settings
                     </button>
+                    <button
+                      onClick={() => { navigate('/tree'); setProfileOpen(false); }}
+                      className="flex items-center gap-2.5 w-full px-3 py-2.5 text-xs font-semibold text-foreground hover:bg-secondary rounded-lg transition-colors"
+                    >
+                      <TreePine className="w-3.5 h-3.5 text-primary" />
+                      Your Tree
+                    </button>
                     <div className="border-t border-border my-1" />
                     <button
                       onClick={() => { onLogoutRequest(); setProfileOpen(false); }}
@@ -668,6 +701,8 @@ function AppLayout({ user, stats, theme, toggleTheme, onLogoutRequest }) {
             <Route path="/coach"     element={<CoachPage />} />
             <Route path="/notes"     element={<NotesPage />} />
             <Route path="/profile"   element={<ProfilePage />} />
+            <Route path="/tree"      element={<TreeShowcase />} />
+            <Route path="/seed"      element={<TreeShowcase />} />
             <Route path="/:subject"  element={<RoadmapsPage />} />
             <Route path="*"          element={<Navigate to="/dashboard" replace />} />
           </Routes>

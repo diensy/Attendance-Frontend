@@ -6,26 +6,100 @@ import {
   Volume2, VolumeX, Bell, BellOff, Hourglass, Zap, Clover
 } from 'lucide-react';
 
+// Helper to get initial timer state from localStorage, calculating elapsed background time if running
+const getInitialTimerState = () => {
+  if (typeof window === 'undefined') {
+    return {
+      mode: 'pomodoro',
+      isRunning: false,
+      customMinutes: 25,
+      timeLeft: 25 * 60,
+      stopwatchSeconds: 0,
+      totalDuration: 0,
+      triggerComplete: false,
+      completedDuration: 0
+    };
+  }
+
+  const savedMode = localStorage.getItem('clover_timer_mode') || 'pomodoro';
+  const savedIsRunning = localStorage.getItem('clover_timer_is_running') === 'true';
+  const savedCustomMinutes = parseInt(localStorage.getItem('clover_timer_custom_minutes'), 10) || 25;
+  
+  let defaultTimeLeft = 25 * 60;
+  if (savedMode === 'pomodoro') defaultTimeLeft = 25 * 60;
+  else if (savedMode === 'long') defaultTimeLeft = 50 * 60;
+  else if (savedMode === 'custom') defaultTimeLeft = savedCustomMinutes * 60;
+
+  const savedTimeLeft = localStorage.getItem('clover_timer_time_left');
+  const savedStopwatchSeconds = localStorage.getItem('clover_timer_stopwatch_seconds');
+  
+  let timeLeftVal = savedTimeLeft !== null ? parseInt(savedTimeLeft, 10) : defaultTimeLeft;
+  let stopwatchSecondsVal = savedStopwatchSeconds !== null ? parseInt(savedStopwatchSeconds, 10) : 0;
+  
+  let totalDurationVal = parseInt(localStorage.getItem('clover_timer_total_duration'), 10) || 0;
+  
+  const lastUpdated = parseInt(localStorage.getItem('clover_timer_last_updated'), 10);
+  let runState = savedIsRunning;
+  let triggerComplete = false;
+  let completedDurVal = 0;
+
+  if (savedIsRunning && lastUpdated) {
+    const elapsedSeconds = Math.floor((Date.now() - lastUpdated) / 1000);
+    if (savedMode === 'stopwatch') {
+      stopwatchSecondsVal += elapsedSeconds;
+      totalDurationVal += elapsedSeconds;
+    } else {
+      if (timeLeftVal - elapsedSeconds <= 0) {
+        totalDurationVal += timeLeftVal;
+        completedDurVal = totalDurationVal;
+        timeLeftVal = 0;
+        runState = false;
+        triggerComplete = true;
+      } else {
+        timeLeftVal -= elapsedSeconds;
+        totalDurationVal += elapsedSeconds;
+      }
+    }
+  }
+
+  return {
+    mode: savedMode,
+    isRunning: runState,
+    customMinutes: savedCustomMinutes,
+    timeLeft: timeLeftVal,
+    stopwatchSeconds: stopwatchSecondsVal,
+    totalDuration: totalDurationVal,
+    triggerComplete,
+    completedDuration: completedDurVal
+  };
+};
+
 export default function FocusTimer() {
   const { token, fetchStats, showToast } = useContext(AuthContext);
 
+  // Load initial timer state from localStorage synchronously
+  const [timerState] = useState(() => getInitialTimerState());
+
   // Sound and Browser Notification toggle states
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [notifyEnabled, setNotifyEnabled] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    return localStorage.getItem('clover_timer_sound_enabled') !== 'false';
+  });
+  const [notifyEnabled, setNotifyEnabled] = useState(() => {
+    return localStorage.getItem('clover_timer_notify_enabled') === 'true';
+  });
 
   // Timer modes: 'pomodoro' | 'long' | 'custom' | 'stopwatch'
-  const [mode, setMode] = useState('pomodoro');
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [customMinutes, setCustomMinutes] = useState(25);
-  const [isRunning, setIsRunning] = useState(false);
-  const [totalSessionSeconds, setTotalSessionSeconds] = useState(0);
+  const [mode, setMode] = useState(timerState.mode);
+  const [timeLeft, setTimeLeft] = useState(timerState.timeLeft);
+  const [customMinutes, setCustomMinutes] = useState(timerState.customMinutes);
+  const [isRunning, setIsRunning] = useState(timerState.isRunning);
 
   // Stopwatch state
-  const [stopwatchSeconds, setStopwatchSeconds] = useState(0);
+  const [stopwatchSeconds, setStopwatchSeconds] = useState(timerState.stopwatchSeconds);
 
   // Logging modal state
-  const [showLogModal, setShowLogModal] = useState(false);
-  const [completedDuration, setCompletedDuration] = useState(0);
+  const [showLogModal, setShowLogModal] = useState(timerState.triggerComplete);
+  const [completedDuration, setCompletedDuration] = useState(timerState.completedDuration);
   const [selectedTopics, setSelectedTopics] = useState([]);
   const [notes, setNotes] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -33,7 +107,18 @@ export default function FocusTimer() {
   const [loading, setLoading] = useState(false);
 
   const timerRef = useRef(null);
-  const totalDurationRef = useRef(0); // tracks total active seconds studied in current session
+  const totalDurationRef = useRef(timerState.totalDuration); // tracks total active seconds studied in current session
+
+  // Refs to store the latest values of state for the DB push interval
+  const modeRef = useRef(mode);
+  const timeLeftRef = useRef(timeLeft);
+  const stopwatchSecondsRef = useRef(stopwatchSeconds);
+  const customMinutesRef = useRef(customMinutes);
+
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+  useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
+  useEffect(() => { stopwatchSecondsRef.current = stopwatchSeconds; }, [stopwatchSeconds]);
+  useEffect(() => { customMinutesRef.current = customMinutes; }, [customMinutes]);
 
   // Request browser notification permissions
   useEffect(() => {
@@ -41,6 +126,99 @@ export default function FocusTimer() {
       setNotifyEnabled(true);
     }
   }, []);
+
+  // Handle case where timer finished while user was away
+  useEffect(() => {
+    if (timerState.triggerComplete) {
+      setTimeout(() => {
+        playBuzzerSound();
+        triggerNotification('🍀 Session Completed!', 'Fantastic job! Select your topics to update your Clover attendance.');
+      }, 500);
+    }
+  }, []);
+
+  // Save timer state to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('clover_timer_mode', mode);
+    localStorage.setItem('clover_timer_is_running', isRunning);
+    localStorage.setItem('clover_timer_custom_minutes', customMinutes);
+    localStorage.setItem('clover_timer_time_left', timeLeft);
+    localStorage.setItem('clover_timer_stopwatch_seconds', stopwatchSeconds);
+    localStorage.setItem('clover_timer_total_duration', totalDurationRef.current);
+    localStorage.setItem('clover_timer_sound_enabled', soundEnabled);
+    localStorage.setItem('clover_timer_notify_enabled', notifyEnabled);
+    localStorage.setItem('clover_timer_last_updated', Date.now());
+  }, [mode, isRunning, customMinutes, timeLeft, stopwatchSeconds, soundEnabled, notifyEnabled]);
+
+  // On mount: restore timer state from DB (more reliable than localStorage for cross-device/refresh)
+  useEffect(() => {
+    if (!token) return;
+    const fetchDbTimer = async () => {
+      try {
+        const res = await fetch(`${API_URL}/timer/active`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.active && data.mode) {
+          // Compare DB saved_at with local last_updated
+          const localLastUpdated = parseInt(localStorage.getItem('clover_timer_last_updated'), 10) || 0;
+          const dbSavedAt = data.saved_at ? new Date(data.saved_at).getTime() : 0;
+          
+          // If local storage is newer than DB saved time, keep local storage state!
+          if (localLastUpdated > dbSavedAt) {
+            return;
+          }
+
+          // DB has a newer active session — restore it
+          setMode(data.mode);
+          if (data.mode === 'stopwatch') {
+            setStopwatchSeconds(data.stopwatch_seconds || 0);
+          } else {
+            if (data.time_left === 0) {
+              // Timer finished while away — trigger completion modal
+              const dur = (data.custom_minutes || 25) * 60;
+              setCompletedDuration(dur);
+              setShowLogModal(true);
+              setTimeout(() => {
+                playBuzzerSound();
+                triggerNotification('🍀 Session Completed!', 'Your timer finished! Log your session now.');
+              }, 300);
+            } else {
+              setTimeLeft(data.time_left);
+              if (data.custom_minutes) setCustomMinutes(data.custom_minutes);
+            }
+          }
+          setIsRunning(true);
+        }
+      } catch (err) {
+        // Silently fail — localStorage fallback is still active
+        console.warn('Could not fetch active timer from DB:', err.message);
+      }
+    };
+    fetchDbTimer();
+  }, [token]);
+
+  // Push active timer state to DB every 30s while running (enables resume after navigation)
+  useEffect(() => {
+    if (!isRunning || !token) return;
+    const pushToDb = () => {
+      fetch(`${API_URL}/timer/active`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          mode: modeRef.current,
+          time_left: modeRef.current !== 'stopwatch' ? timeLeftRef.current : null,
+          stopwatch_seconds: modeRef.current === 'stopwatch' ? stopwatchSecondsRef.current : null,
+          custom_minutes: modeRef.current === 'custom' ? customMinutesRef.current : null
+        })
+      }).catch(err => console.warn('Timer DB sync failed:', err.message));
+    };
+    pushToDb(); // Push immediately on start
+    const intervalId = setInterval(pushToDb, 30000);
+    return () => clearInterval(intervalId);
+  }, [isRunning, token]);
+
 
   const requestNotificationPermission = async () => {
     if (!('Notification' in window)) return;
@@ -136,7 +314,15 @@ export default function FocusTimer() {
   };
 
   const handleStartPause = () => {
-    setIsRunning(!isRunning);
+    const nextIsRunning = !isRunning;
+    setIsRunning(nextIsRunning);
+    if (!nextIsRunning && token) {
+      // If paused, delete from DB active timer so it doesn't keep running in DB
+      fetch(`${API_URL}/timer/active`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => {});
+    }
   };
 
   const handleReset = () => {
@@ -147,6 +333,13 @@ export default function FocusTimer() {
       setTimeLeft(getModeDuration());
     }
     totalDurationRef.current = 0;
+    // Clear persisted active timer from DB
+    if (token) {
+      fetch(`${API_URL}/timer/active`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => {});
+    }
   };
 
   const handleModeChange = (newMode) => {
@@ -204,11 +397,12 @@ export default function FocusTimer() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to save session');
 
-      setSuccessMessage('🍀 Study session logged and Attendance updated!');
-      showToast?.('Study session logged and Attendance updated! 🍀', 'success');
+      const xpMsg = data.xpAwarded ? ` +${data.xpAwarded} XP earned! 🌱` : '';
+      setSuccessMessage(`🍀 Study session logged and Attendance updated!${xpMsg}`);
+      showToast?.(`Study session logged! 🍀${xpMsg}`, 'success');
       setUnlockedBadges(data.badgesUnlocked || []);
       
-      // Update global user stats
+      // Update global user stats (including new XP)
       await fetchStats();
 
       // Reset
