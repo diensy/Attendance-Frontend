@@ -191,8 +191,18 @@ export default function Courses() {
 
       const current = Math.round(player.getCurrentTime());
       const startSec = video.start_seconds || 0;
-      const duration = video.duration_seconds || 1;
-      const relativeWatched = Math.min(duration, Math.max(0, current - startSec));
+      
+      // Use the actual player duration as ground truth — the DB-stored duration_seconds
+      // may be wrong (e.g. defaulted to 1800s for long single-video imports).
+      let actualDuration = video.duration_seconds || 1;
+      try {
+        const playerDuration = Math.round(player.getDuration());
+        if (playerDuration > actualDuration) {
+          actualDuration = playerDuration;
+        }
+      } catch (e) {}
+
+      const relativeWatched = Math.min(actualDuration, Math.max(0, current - startSec));
       if (relativeWatched >= 0) {
         if (isAutoSaveStatus) setSaveStatus('Saving...');
         const res = await fetch(`${API_URL}/courses/videos/${video.id}/progress`, {
@@ -203,7 +213,8 @@ export default function Courses() {
           },
           body: JSON.stringify({
             watched_seconds: relativeWatched,
-            notes: currentNotes
+            notes: currentNotes,
+            actual_duration_seconds: actualDuration // let backend auto-correct wrong stored duration
           })
         });
         if (res.ok) {
@@ -274,15 +285,14 @@ export default function Courses() {
           onReady: (event) => {
             const startSec = currentVideo.start_seconds || 0;
             const watched = currentVideo.watched_seconds || 0;
-            const duration = currentVideo.duration_seconds || 0;
             
-            // Seek to previous watched seconds or start_seconds
-            const seekPos = watched > 0 && watched < duration - 10 
-              ? startSec + watched 
-              : startSec;
-              
-            if (seekPos > 0) {
-              event.target.seekTo(seekPos, true);
+            // Seek to where user left off if they've watched more than 30 seconds.
+            // We don't rely on the stored duration_seconds for the upper-bound check here
+            // because it may have been stored incorrectly (e.g. defaulted to 1800s for long videos).
+            if (watched > 30) {
+              event.target.seekTo(startSec + watched, true);
+            } else if (startSec > 0) {
+              event.target.seekTo(startSec, true);
             }
           },
           onStateChange: (event) => {
@@ -300,17 +310,23 @@ export default function Courses() {
       // Clear previous interval if any
       if (playerPollerRef.current) clearInterval(playerPollerRef.current);
       
+      // Use a ref-based tracker to avoid stale closure issues in the interval
+      const progressTracker = { lastSaved: currentVideo.watched_seconds || 0 };
+
       // Periodically update watched seconds on backend (every 10 seconds)
-      let lastSavedProgress = currentVideo.watched_seconds || 0;
       playerPollerRef.current = setInterval(async () => {
         if (playerRef.current && playerRef.current.getCurrentTime) {
           const current = Math.round(playerRef.current.getCurrentTime());
           const startSec = currentVideo.start_seconds || 0;
-          const duration = currentVideo.duration_seconds || 1;
+          let duration = currentVideo.duration_seconds || 1;
+          try {
+            const playerDur = Math.round(playerRef.current.getDuration());
+            if (playerDur > duration) duration = playerDur;
+          } catch (e) {}
           const relativeWatched = Math.min(duration, Math.max(0, current - startSec));
-          if (relativeWatched >= 0 && relativeWatched !== lastSavedProgress) {
+          if (relativeWatched > 0 && relativeWatched !== progressTracker.lastSaved) {
             await saveProgress(currentVideo, playerRef.current, notesRef.current);
-            lastSavedProgress = relativeWatched;
+            progressTracker.lastSaved = relativeWatched;
           }
         }
       }, 10000);
