@@ -101,7 +101,6 @@ export default function Courses() {
     fetchCourses();
   }, []);
 
-  // Fetch course details
   const loadCourse = async (courseId) => {
     try {
       const res = await fetch(`${API_URL}/courses/${courseId}`, {
@@ -112,17 +111,30 @@ export default function Courses() {
         setActiveCourse(data.course);
         setVideos(data.videos);
 
-        // Find last watched or first video
+        // Resume from the last video that was being watched (highest watched_seconds, not yet completed)
+        // Falls back to first uncompleted, then first video overall
+        const inProgress = data.videos
+          .filter(v => !v.is_completed && (v.watched_seconds || 0) > 0)
+          .sort((a, b) => (b.watched_seconds || 0) - (a.watched_seconds || 0));
+        
         const firstUncompleted = data.videos.find(v => !v.is_completed);
-        const videoToLoad = firstUncompleted || data.videos[0];
+        const videoToLoad = inProgress[0] || firstUncompleted || data.videos[0];
+        
         if (videoToLoad) {
           selectVideo(videoToLoad);
+          // Toast if resuming from mid-video
+          if ((videoToLoad.watched_seconds || 0) > 30) {
+            const mins = Math.floor(videoToLoad.watched_seconds / 60);
+            const secs = videoToLoad.watched_seconds % 60;
+            showToast(`▶ Resuming from ${mins}:${String(secs).padStart(2,'0')}`, 'info');
+          }
         }
       }
     } catch (e) {
       console.error(e);
     }
   };
+
 
   const selectVideo = (video) => {
     setActiveVideo(video);
@@ -505,7 +517,20 @@ export default function Courses() {
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredCourses.map((course) => {
-                  const percent = Math.round((course.completed_videos / course.total_videos) * 100) || 0;
+                  const totalVids = parseInt(course.actual_total_videos) || parseInt(course.total_videos) || 1;
+                  const completedVids = parseInt(course.completed_videos) || 0;
+                  const totalSecs = parseInt(course.total_duration_seconds) || 0;
+                  const watchedSecs = parseInt(course.total_watched_seconds) || 0;
+
+                  // Always show watch-time based % (most accurate, works for any video count)
+                  const percent = totalSecs > 0 ? Math.min(100, Math.round((watchedSecs / totalSecs) * 100)) : 0;
+
+                  // Format seconds → "Xh Ym" label
+                  const fmtTime = (secs) => {
+                    const h = Math.floor(secs / 3600);
+                    const m = Math.floor((secs % 3600) / 60);
+                    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+                  };
                   return (
                     <div 
                       key={course.id} 
@@ -525,7 +550,7 @@ export default function Courses() {
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                         <div className="absolute top-2 right-2 px-2.5 py-1 bg-black/60 rounded-lg text-[10px] text-white font-bold backdrop-blur-sm z-10">
-                          {course.total_videos} Videos
+                          {totalVids} Videos
                         </div>
                         <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-primary/95 text-primary-foreground text-[10px] font-bold rounded-lg backdrop-blur-sm z-10">
                           {course.subject || 'General'}
@@ -544,12 +569,18 @@ export default function Courses() {
 
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                            <span>Progress: {course.completed_videos} / {course.total_videos} Completed</span>
-                            <span>{percent}%</span>
+                            <span>
+                              {watchedSecs > 0
+                                ? `${fmtTime(watchedSecs)} / ${fmtTime(totalSecs)} watched`
+                                : `${completedVids} / ${totalVids} videos completed`}
+                            </span>
+                            <span className={`font-bold ${percent >= 100 ? 'text-emerald-500' : percent > 0 ? 'text-primary' : ''}`}>
+                              {percent}%
+                            </span>
                           </div>
                           <div className="w-full bg-secondary rounded-full h-2">
                             <div 
-                              className="bg-primary h-2 rounded-full transition-all duration-500" 
+                              className={`h-2 rounded-full transition-all duration-500 ${percent >= 100 ? 'bg-emerald-500' : 'bg-primary'}`}
                               style={{ width: `${percent}%` }}
                             />
                           </div>
